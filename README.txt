@@ -1,7 +1,10 @@
 Entertainment Center
 
 Download:
-- 
+- Repository: https://github.com/samydafir/ud036_StarterCode
+- Clone this repository or
+- Download as zip file.
+- If Downloaded as Zip file extract to desired location
 
 Run:
 - Execute the file entertainmen_center.py:
