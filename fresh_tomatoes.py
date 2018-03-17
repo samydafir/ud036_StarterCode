@@ -1,7 +1,7 @@
 import webbrowser
 import os
 import re
-
+import media
 
 # Styles and scripting for the page
 main_page_head = '''
@@ -9,54 +9,14 @@ main_page_head = '''
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Fresh Tomatoes!</title>
+    <title>Entertainment Center</title>
 
-    <!-- Bootstrap 3 -->
-    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap-theme.min.css">
+    <!-- Bootstrap 4 -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
-    <script src="https://netdna.bootstrapcdn.com/bootstrap/3.1.0/js/bootstrap.min.js"></script>
-    <style type="text/css" media="screen">
-        body {
-            padding-top: 80px;
-        }
-        #trailer .modal-dialog {
-            margin-top: 200px;
-            width: 640px;
-            height: 480px;
-        }
-        .hanging-close {
-            position: absolute;
-            top: -12px;
-            right: -12px;
-            z-index: 9001;
-        }
-        #trailer-video {
-            width: 100%;
-            height: 100%;
-        }
-        .movie-tile {
-            margin-bottom: 20px;
-            padding-top: 20px;
-        }
-        .movie-tile:hover {
-            background-color: #EEE;
-            cursor: pointer;
-        }
-        .scale-media {
-            padding-bottom: 56.25%;
-            position: relative;
-        }
-        .scale-media iframe {
-            border: none;
-            height: 100%;
-            position: absolute;
-            width: 100%;
-            left: 0;
-            top: 0;
-            background-color: white;
-        }
-    </style>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="css/main.css" type="text/css" media="screen">
+
     <script type="text/javascript" charset="utf-8">
         // Pause the video when the modal is closed
         $(document).on('click', '.hanging-close, .modal-backdrop, .modal', function (event) {
@@ -65,7 +25,7 @@ main_page_head = '''
             $("#trailer-video-container").empty();
         });
         // Start playing the video whenever the trailer modal is opened
-        $(document).on('click', '.movie-tile', function (event) {
+        $(document).on('click', '.tile', function (event) {
             var trailerYouTubeId = $(this).attr('data-trailer-youtube-id')
             var sourceUrl = 'http://www.youtube.com/embed/' + trailerYouTubeId + '?autoplay=1&html5=1';
             $("#trailer-video-container").empty().append($("<iframe></iframe>", {
@@ -77,8 +37,9 @@ main_page_head = '''
         });
         // Animate in the movies when the page loads
         $(document).ready(function () {
-          $('.movie-tile').hide().first().show("fast", function showNext() {
-            $(this).next("div").show("fast", showNext);
+          $('.tile').hide();
+          $('.tile').each(function(i, obj) {
+            $(this).show(400);
           });
         });
     </script>
@@ -86,7 +47,7 @@ main_page_head = '''
 '''
 
 
-# The main page layout and title bar
+# The main page layout and title bar. Modified to include a TV-Shows section
 main_page_content = '''
   <body>
     <!-- Trailer Video Modal -->
@@ -103,17 +64,37 @@ main_page_content = '''
     </div>
 
     <!-- Main Page Content -->
-    <div class="container">
-      <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
-        <div class="container">
-          <div class="navbar-header">
-            <a class="navbar-brand" href="#">Fresh Tomatoes Movie Trailers</a>
-          </div>
-        </div>
-      </div>
+    <nav class="navbar fixed-top navbar-expand-sm navbar-dark bg-dark">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#nav-content" aria-controls="nav-content" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+            </button>
+
+    <!-- Brand -->
+    <a class="navbar-brand" href="#">Entertainment Center</a>
+
+    <!-- Links -->
+    <div class="collapse navbar-collapse" id="nav-content">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <a class="nav-link" href="#moviesection">Movies</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#tvshowsection">TV Shows</a>
+            </li>
+        </ul>
+</nav>
+    <div class="container-fluid" id="moviesection">
+    <h2>Movies</h2>
+    <div class="row">
+        {movie_tiles}
     </div>
-    <div class="container">
-      {movie_tiles}
+    </div>
+    <hr class="section-separator">
+    <div class="container-fluid" id="tvshowsection">
+    <h2>TV Shows</h2>
+    <div class="row">
+        {tv_show_tiles}
+    </div>
     </div>
   </body>
 </html>
@@ -121,42 +102,59 @@ main_page_content = '''
 
 
 # A single movie entry html template
-movie_tile_content = '''
-<div class="col-md-6 col-lg-4 movie-tile text-center" data-trailer-youtube-id="{trailer_youtube_id}" data-toggle="modal" data-target="#trailer">
-    <img src="{poster_image_url}" width="220" height="342">
-    <h2>{movie_title}</h2>
+tile_content = '''
+<div class="col-md-4 tile text-center mx-auto" data-trailer-youtube-id="{trailer_youtube_id}" data-toggle="modal" data-target="#trailer">
+    <img class="rounded-corners" src="{poster_image_url}" width="220" height="342">
+    <h2>{title}</h2>
 </div>
 '''
 
-
-def create_movie_tiles_content(movies):
+# Creates the html content for movie and tv_show tiles.Extracts the youtube url
+# and info required for display from each object in the passed list. Differentiates
+# between movies and tv_shows. Processes TV-shows such that every show is only
+# displayed once on the site, no matter how many episodes the list contains.
+# Returns an array containing two strings: html for movies and tv-shows.
+def create_movie_tiles_content(videos):
     # The HTML content for this section of the page
-    content = ''
-    for movie in movies:
+    content_movies = ''
+    content_tv_shows = ''
+    found_shows = set()
+    for medium in videos:
         # Extract the youtube ID from the url
         youtube_id_match = re.search(
-            r'(?<=v=)[^&#]+', movie.trailer_youtube_url)
+            r'(?<=v=)[^&#]+', medium.trailer_youtube_url)
         youtube_id_match = youtube_id_match or re.search(
-            r'(?<=be/)[^&#]+', movie.trailer_youtube_url)
+            r'(?<=be/)[^&#]+', medium.trailer_youtube_url)
         trailer_youtube_id = (youtube_id_match.group(0) if youtube_id_match
-                              else None)
+                          else None)
+        if isinstance(medium, media.Movie):
+            # Append the tile for the movie with its content filled in
+            content_movies += tile_content.format(
+                title=medium.title,
+                poster_image_url=medium.poster_image_url,
+                trailer_youtube_id=trailer_youtube_id
+            )
+        elif isinstance(medium, media.TvShow) and not medium.title in found_shows:
+            # Append the tile for the tv_show with its content filled in
+            content_tv_shows += tile_content.format(
+                title=medium.title,
+                poster_image_url=medium.poster_image_url,
+                trailer_youtube_id=trailer_youtube_id
+            )
+            found_shows.add(medium.title)
 
-        # Append the tile for the movie with its content filled in
-        content += movie_tile_content.format(
-            movie_title=movie.title,
-            poster_image_url=movie.poster_image_url,
-            trailer_youtube_id=trailer_youtube_id
-        )
-    return content
+    return [content_movies, content_tv_shows]
 
-
+# Creates a new html file, writes the static content, replaces keys with created
+# html code and writes the file to disk
 def open_movies_page(movies):
     # Create or overwrite the output file
     output_file = open('fresh_tomatoes.html', 'w')
 
     # Replace the movie tiles placeholder generated content
+    content = create_movie_tiles_content(movies)
     rendered_content = main_page_content.format(
-        movie_tiles=create_movie_tiles_content(movies))
+        movie_tiles=content[0], tv_show_tiles = content[1])
 
     # Output the file
     output_file.write(main_page_head + rendered_content)
