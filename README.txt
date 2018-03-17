@@ -14,4 +14,4 @@ Run:
 Use:
 - Navigate between movie and tv-show sections using
   the nav-bar links.
-- Click on any movie/th-show poster to view the trailer
+- Click on any movie/tv-show poster to view the trailer
