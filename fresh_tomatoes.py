@@ -3,6 +3,9 @@ import os
 import re
 import media
 
+# This file is based on the fresh_tomatoes starter code provided by Udacity.
+
+
 # Styles and scripting for the page
 main_page_head = '''
 <!DOCTYPE html>
